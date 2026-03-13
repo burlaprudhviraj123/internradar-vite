@@ -26,3 +26,4 @@ dist-ssr
 # Firebase Service Account (NEVER commit this!)
 scraper/service-account.json
 scraper/.env
+.env
