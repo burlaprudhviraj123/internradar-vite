@@ -14,8 +14,8 @@ export function Navbar() {
   ];
 
   return (
-    <header className="border-b bg-card/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-2 sm:py-3">
+    <header className="border-b bg-card/80 backdrop-blur-md shadow-sm sticky top-0 z-50 pt-[env(safe-area-inset-top)]">
+      <div className="container mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-2 sm:py-3 mt-1 sm:mt-0">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group shrink-0">
           <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary/20 transition-colors">
