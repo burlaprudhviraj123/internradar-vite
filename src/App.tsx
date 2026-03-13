@@ -30,31 +30,99 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
 
 // ─── Protected route wrapper ─────────────────────────────────────────────────
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, signInWithGoogle, error: authError } = useAuth();
+  const { user, loading: authLoading, sendOtp, verifyOtp, error: authError } = useAuth();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [step, setStep] = useState<1 | 2>(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   if (authLoading) return (
     <div className="flex justify-center items-center h-[60vh]">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
     </div>
   );
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneNumber) return;
+    setIsProcessing(true);
+    await sendOtp(phoneNumber);
+    if (!authError) setStep(2);
+    setIsProcessing(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode) return;
+    setIsProcessing(true);
+    await verifyOtp(otpCode);
+    setIsProcessing(false);
+  };
+
   if (!user) return (
     <div className="container mx-auto py-20 px-6 flex flex-col items-center justify-center">
       <div className="max-w-md w-full bg-card border rounded-2xl shadow-sm p-8 text-center">
-        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl">📡</div>
-        <h2 className="text-2xl font-bold mb-2">Sign in to InternRadar</h2>
-        <p className="text-muted-foreground mb-8">Track and manage your internship opportunities securely.</p>
+        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl">📱</div>
+        <h2 className="text-2xl font-bold mb-2">Sign in via SMS</h2>
+        <p className="text-muted-foreground mb-8 text-sm">Track and manage your internship opportunities securely.</p>
+        
         {authError && (
           <div className="mb-6 px-4 py-3 bg-destructive/10 text-destructive text-sm rounded-lg flex items-start gap-2 text-left">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <p>{authError}</p>
           </div>
         )}
-        <button
-          onClick={signInWithGoogle}
-          className="w-full flex items-center justify-center gap-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors py-3 px-6 rounded-xl font-semibold shadow-sm"
-        >
-          <LogIn className="w-5 h-5" />
-          Sign in with Google
-        </button>
+
+        {step === 1 ? (
+          <form onSubmit={handleSendOtp} className="space-y-4">
+            <input
+              type="tel"
+              placeholder="Phone Number (e.g. +91...)"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+              required
+              disabled={isProcessing}
+            />
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="w-full flex items-center justify-center gap-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors py-3 px-6 rounded-xl font-semibold shadow-sm disabled:opacity-70"
+            >
+              {isProcessing ? "Sending OTP..." : "Send Verification Code"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <input
+              type="text"
+              placeholder="6-digit OTP Code"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-center tracking-[0.5em] text-lg"
+              required
+              disabled={isProcessing}
+              maxLength={6}
+            />
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="w-full flex items-center justify-center gap-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors py-3 px-6 rounded-xl font-semibold shadow-sm disabled:opacity-70"
+            >
+              <LogIn className="w-5 h-5 shrink-0" />
+              {isProcessing ? "Verifying..." : "Sign In"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="text-xs text-muted-foreground hover:text-foreground mt-2"
+              disabled={isProcessing}
+            >
+              Use a different phone number
+            </button>
+          </form>
+        )}
+        <div id="recaptcha-container" className="mt-4 flex justify-center"></div>
       </div>
     </div>
   );

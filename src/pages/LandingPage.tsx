@@ -17,10 +17,10 @@ const FLOW = [
 ];
 
 export function LandingPage() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const cta = user
     ? <Link to="/dashboard" className="group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg hover:-translate-y-0.5">Open Dashboard <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></Link>
-    : <button onClick={signInWithGoogle} className="group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg hover:-translate-y-0.5">Try the Demo <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></button>;
+    : <Link to="/dashboard" className="group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg hover:-translate-y-0.5">Try the Demo <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></Link>;
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,21 +1,29 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  type ConfirmationResult,
   signOut as firebaseSignOut, 
   onAuthStateChanged, 
   type User 
 } from 'firebase/auth';
-import { auth, googleProvider, db, isConfigured } from '@/lib/firebase';
+import { auth, db, isConfigured } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
+
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+    grecaptcha: any;
+  }
+}
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  sendOtp: (phoneNumber: string) => Promise<void>;
+  verifyOtp: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   saveUserProfile: (profile: Omit<UserProfile, 'userId'>) => Promise<void>;
   error: string | null;
@@ -28,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const fetchUserProfile = async (uid: string) => {
     if (!db) return;
@@ -52,20 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check if we are returning from a redirect flow
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          setUser(result.user);
-          fetchUserProfile(result.user.uid);
-        }
-      })
-      .catch((err) => {
-        setError(err.message || "Failed to sign in via redirect.");
-        console.error("Redirect error:", err);
-        setLoading(false);
-      });
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -79,46 +74,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const signInWithGoogle = async () => {
+  const setupRecaptcha = () => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
+  };
+
+  const sendOtp = async (phoneNumber: string) => {
     if (!isConfigured || !auth) {
       setError("Firebase is not configured.");
       return;
     }
     
-    // Explicit WebView detection: WebViews cannot handle popups correctly and lose session state
-    // when bouncing to external browsers. We MUST force redirect for Android WebViews.
-    const isWebView = navigator.userAgent.includes('wv') || (navigator.userAgent.includes('Android') && navigator.userAgent.includes('Version/'));
-    
-    if (isWebView) {
-        console.log("Android WebView detected. Forcing signInWithRedirect...");
-        try {
-            await signInWithRedirect(auth, googleProvider);
-            return;
-        } catch (err: any) {
-             setError(err.message || "Failed to sign in via redirect.");
-             return;
-        }
-    }
-
     try {
       setError(null);
-      await signInWithPopup(auth, googleProvider);
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`; // Default to India if no code
+      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      setConfirmationResult(result);
     } catch (err: any) {
-      // If the browser blocks third-party storage (like Brave, Safari, Chrome Incognito) 
-      // the popup fails. We can fall back to a full-page redirect instead.
-      const isStoragePartitionError = 
-        err.message?.includes('missing initial state') || 
-        err.message?.includes('storage-partitioned') ||
-        err.code === 'auth/popup-closed-by-user'; // Sometimes it throws this if blocked
-
-      if (isStoragePartitionError) {
-        console.log("Popup blocked by browser storage rules. Falling back to redirect...");
-        // This will redirect the whole page
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        setError(err.message || "Failed to sign in with Google.");
-        console.error(err);
+      setError(err.message || "Failed to send OTP.");
+      console.error(err);
+      if (window.recaptchaVerifier) {
+         window.recaptchaVerifier.render().then((widgetId: any) => {
+           window.grecaptcha.reset(widgetId);
+         });
       }
+    }
+  };
+
+  const verifyOtp = async (code: string) => {
+    if (!confirmationResult) {
+       setError("No OTP request found. Please request a new code.");
+       return;
+    }
+    
+    try {
+       setError(null);
+       const result = await confirmationResult.confirm(code);
+       setUser(result.user);
+       fetchUserProfile(result.user.uid);
+    } catch (err: any) {
+       setError("Invalid code. Please try again.");
+       console.error(err);
     }
   };
 
@@ -153,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, logout, saveUserProfile, error }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, sendOtp, verifyOtp, logout, saveUserProfile, error }}>
       {children}
     </AuthContext.Provider>
   );
