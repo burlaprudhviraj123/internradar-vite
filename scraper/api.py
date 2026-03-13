@@ -195,6 +195,9 @@ def extract():
 
     try:
         from groq import Groq
+        import json
+        import re
+        
         client = Groq(api_key=groq_key)
         prompt = f"""Extract internship details from the text below. Return ONLY valid JSON:
 {{
@@ -214,16 +217,23 @@ Text:\n{combined}"""
             temperature=0.1,
         )
         raw = chat.choices[0].message.content.strip()
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"): raw = raw[4:]
-        import json
-        parsed = json.loads(raw)
+        print(f"RAW GROQ OUTPUT: {raw}", flush=True) # Send to Render logs
+        
+        # Robust JSON extraction using regex to find the first '{' and last '}'
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if json_match:
+            raw_json = json_match.group(0)
+        else:
+            raw_json = raw
+            
+        parsed = json.loads(raw_json)
         parsed["sourceApp"] = source_app
         return jsonify(parsed)
     except Exception as e:
-        return jsonify({"error": f"AI extraction failed: {str(e)}"}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"EXTRACTION ERROR: {error_trace}", flush=True)
+        return jsonify({"error": f"AI extraction failed: {str(e)}", "trace": error_trace}), 500
 
 
 if __name__ == "__main__":
