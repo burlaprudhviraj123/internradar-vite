@@ -188,7 +188,7 @@ def extract():
 
     combined = f"{message}\n\n{scraped_text}".strip()[:5000]
 
-    # Call OpenAI AI
+    # Call AI
     api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         return jsonify({"error": "API_KEY not set on server"}), 500
@@ -199,7 +199,15 @@ def extract():
         import re
         
         base_url = os.environ.get("OPENAI_BASE_URL")
-        # Initialize client. If base_url is provided (e.g. for OpenRouter or proxies), it uses it.
+        model = "openai/gpt-oss-120b"
+        
+        # SMART ROUTING: If it's a Groq key, use Groq's endpoint and model string
+        if api_key.startswith("gsk_"):
+            print("Detected GROQ key. Routing to Groq endpoint...", flush=True)
+            base_url = "https://api.groq.com/openai/v1"
+            model = "llama-3.3-70b-versatile"
+            
+        # Initialize client
         client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
         
         prompt = f"""Extract internship details from the text below. Return ONLY valid JSON:
@@ -215,12 +223,12 @@ def extract():
 
 Text:\n{combined}"""
         chat = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
         raw = chat.choices[0].message.content.strip()
-        print(f"RAW OPENAI OUTPUT: {raw}", flush=True) # Send to Render logs
+        print(f"RAW AI OUTPUT ({model}): {raw}", flush=True) 
         
         # Robust JSON extraction using regex to find the first '{' and last '}'
         json_match = re.search(r'\{.*\}', raw, re.DOTALL)
