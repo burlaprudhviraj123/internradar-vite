@@ -7,7 +7,7 @@ import { RecommendedSources } from '@/components/features/RecommendedSources';
 import { Navbar } from '@/components/layout/Navbar';
 import { LandingPage } from '@/pages/LandingPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
-import { subscribeToOpportunities, updateOpportunityStatus, markUrgencyEmailSent, isConfigured } from '@/lib/firebase';
+import { subscribeToOpportunities, updateOpportunityStatus, markUrgencyEmailSent, isConfigured, saveOpportunity } from '@/lib/firebase';
 import { evaluateMatch } from '@/lib/llm';
 import { sendUrgencyEmail } from '@/lib/email';
 import type { Opportunity } from '@/types';
@@ -129,11 +129,49 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+declare global {
+  interface Window {
+    onInternshipDetected: (data: any) => void;
+  }
+}
+
 // ─── Main dashboard content ──────────────────────────────────────────────────
 function DashboardContent({ opportunities, loading, dbError, evaluating, userProfile }: any) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [dateFilter, setDateFilter] = useState('All Time');
   const [sortBy, setSortBy] = useState('Deadline (Closest)');
+
+  useEffect(() => {
+    // This function is called natively by the Android WebView when a notification is processed
+    window.onInternshipDetected = async (data: any) => {
+      try {
+        console.log("Received internship from Android App!", data);
+        
+        // Android sends back "sourceApp", "applyLink", "companyName", "role", "deadline"
+        const newOpp = {
+          companyName: data.companyName || "Unknown Company",
+          role: data.role || "Unknown Role",
+          status: "Saved",
+          matchScore: 0,
+          deadline: data.deadline || "",
+          createdAt: new Date(),
+          source: data.sourceApp || "Android Radar",
+          applyLink: data.applyLink || "",
+        };
+
+        // Save immediately to Firestore
+        await saveOpportunity(newOpp);
+        console.log("Successfully saved Android opportunity!");
+      } catch (err) {
+        console.error("Failed to save opportunity from Android app", err);
+      }
+    };
+
+    return () => {
+      // Cleanup
+      delete (window as any).onInternshipDetected;
+    };
+  }, []);
 
   const displayedOpportunities = opportunities
     .filter((opp: Opportunity) => filterStatus === 'All' || opp.status === filterStatus)
