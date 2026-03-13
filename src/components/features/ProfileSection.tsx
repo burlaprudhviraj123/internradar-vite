@@ -114,13 +114,14 @@ export function ProfilePage() {
          </p>
       </div>
       
-      <div 
-        className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${loading ? 'bg-muted border-muted-foreground/20' : 'hover:bg-muted/50 border-border cursor-pointer'}`}
-        onClick={() => !loading && fileInputRef.current?.click()}
+      <label 
+        htmlFor="resume-upload"
+        className={`block border-2 border-dashed rounded-xl p-12 text-center transition-colors ${loading ? 'bg-muted border-muted-foreground/20' : 'hover:bg-muted/50 border-border cursor-pointer'}`}
       >
         <input 
+          id="resume-upload"
           type="file" 
-          accept=".pdf" 
+          accept="application/pdf" 
           className="hidden" 
           ref={fileInputRef}
           onChange={handleFileUpload}
@@ -138,12 +139,12 @@ export function ProfilePage() {
              <UploadCloud className="w-10 h-10 text-muted-foreground mb-2" />
              <p className="font-semibold text-lg">Click to Upload PDF</p>
              <p className="text-sm text-muted-foreground mb-4">Maximum file size: 5MB</p>
-             <button className="bg-primary text-primary-foreground px-6 py-2 rounded-full font-medium text-sm">
+             <span className="bg-primary text-primary-foreground px-6 py-2 rounded-full font-medium text-sm inline-block">
                Browse Files
-             </button>
+             </span>
           </div>
         )}
-      </div>
+      </label>
 
       {error && (
         <div className="mt-4 p-4 bg-destructive/10 text-destructive text-sm rounded-lg border border-destructive/20 text-center font-medium">
