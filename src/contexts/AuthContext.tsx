@@ -85,6 +85,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Explicit WebView detection: WebViews cannot handle popups correctly and lose session state
+    // when bouncing to external browsers. We MUST force redirect for Android WebViews.
+    const isWebView = navigator.userAgent.includes('wv') || (navigator.userAgent.includes('Android') && navigator.userAgent.includes('Version/'));
+    
+    if (isWebView) {
+        console.log("Android WebView detected. Forcing signInWithRedirect...");
+        try {
+            await signInWithRedirect(auth, googleProvider);
+            return;
+        } catch (err: any) {
+             setError(err.message || "Failed to sign in via redirect.");
+             return;
+        }
+    }
+
     try {
       setError(null);
       await signInWithPopup(auth, googleProvider);
