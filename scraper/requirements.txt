@@ -6,4 +6,4 @@ beautifulsoup4==4.12.3
 firebase-admin==6.4.0
 python-dotenv==1.0.0
 lxml==5.2.1
-groq
+openai
