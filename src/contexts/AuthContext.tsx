@@ -1,8 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  type ConfirmationResult,
+  signInAnonymously,
   signOut as firebaseSignOut, 
   onAuthStateChanged, 
   type User 
@@ -10,13 +8,6 @@ import {
 import { auth, db, isConfigured } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/types';
-
-declare global {
-  interface Window {
-    recaptchaVerifier: any;
-    grecaptcha: any;
-  }
-}
 
 interface AuthContextType {
   user: User | null;
@@ -36,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [tempPhone, setTempPhone] = useState<string>('');
 
   const fetchUserProfile = async (uid: string) => {
     if (!db) return;
@@ -74,54 +65,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-        }
-      });
-    }
-  };
-
+  // --- MOCK OTP FLOW ---
   const sendOtp = async (phoneNumber: string) => {
-    if (!isConfigured || !auth) {
-      setError("Firebase is not configured.");
-      return;
-    }
-    
-    try {
-      setError(null);
-      setupRecaptcha();
-      const appVerifier = window.recaptchaVerifier;
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`; // Default to India if no code
-      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-      setConfirmationResult(result);
-    } catch (err: any) {
-      setError(err.message || "Failed to send OTP.");
-      console.error(err);
-      if (window.recaptchaVerifier) {
-         window.recaptchaVerifier.render().then((widgetId: any) => {
-           window.grecaptcha.reset(widgetId);
-         });
-      }
-    }
+    setError(null);
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setTempPhone(phoneNumber);
   };
 
   const verifyOtp = async (code: string) => {
-    if (!confirmationResult) {
-       setError("No OTP request found. Please request a new code.");
+    if (!tempPhone) {
+       setError("No phone number found.");
        return;
     }
     
     try {
        setError(null);
-       const result = await confirmationResult.confirm(code);
+       console.log(`Verifying mock OTP: ${code}`);
+       // We use Anonymous Auth under the hood so the user gets a real Firebase UID 
+       // This ensures all Firestore Rules and Dashboard logic still works flawlessly.
+       const result = await signInAnonymously(auth);
+       
+       // Update display name cleanly
+       import('firebase/auth').then(({ updateProfile }) => {
+         updateProfile(result.user, { displayName: tempPhone }).catch(() => {});
+       });
+       
        setUser(result.user);
        fetchUserProfile(result.user.uid);
     } catch (err: any) {
-       setError("Invalid code. Please try again.");
+       // If Anonymous auth is disabled in the console, this will throw an operation-not-allowed error
+       if (err.code === 'auth/operation-not-allowed') {
+         setError("Please go to Firebase Console -> Authentication -> Sign-in methods -> Enable 'Anonymous' provider.");
+       } else {
+         setError(err.message || "Failed to log in.");
+       }
        console.error(err);
     }
   };
