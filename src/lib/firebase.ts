@@ -41,7 +41,7 @@ if (isConfigured) {
 
 export { db, auth, googleProvider, isConfigured };
 
-export async function saveOpportunity(data: Omit<Opportunity, "id">) {
+export async function saveOpportunity(data: Omit<Opportunity, "id" | "userId">) {
   if (!isConfigured) throw new Error("Firebase is not configured. Please set environment variables.");
   if (!auth?.currentUser?.uid) throw new Error("You must be logged in to save opportunities.");
 

@@ -151,12 +151,12 @@ function DashboardContent({ opportunities, loading, dbError, evaluating, userPro
         const newOpp = {
           companyName: data.companyName || "Unknown Company",
           role: data.role || "Unknown Role",
-          status: "Saved",
-          matchScore: 0,
-          deadline: data.deadline || "",
+          status: "Saved" as const,
+          deadline: data.deadline || null,
           createdAt: new Date(),
-          source: data.sourceApp || "Android Radar",
-          applyLink: data.applyLink || "",
+          applicationLink: data.applicationLink || data.applyLink || "",
+          eligibility: data.eligibility || [],
+          requiredDocuments: [],
         };
 
         // Save immediately to Firestore
